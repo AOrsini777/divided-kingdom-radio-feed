@@ -1,0 +1,32 @@
+name: Update RSS Feed
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 10 * * 1'  # Every Monday at 10:00 UTC
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: pip install beautifulsoup4 requests
+
+      - name: Run feed generator
+        run: python generate_feed.py
+
+      - name: Commit and push if feed updated
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add feed.xml
+          git commit -m "Update feed.xml" || echo "No changes to commit"
+          git push
