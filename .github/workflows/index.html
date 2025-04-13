@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Divided Kingdom Radio Feed</title>
+</head>
+<body>
+    <h1>Divided Kingdom Radio Episodes</h1>
+    <ul id="episode-list"></ul>
+
+    <script>
+        fetch('feed.xml')
+        .then(response => response.text())
+        .then(data => {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(data, "text/xml");
+            const items = xmlDoc.getElementsByTagName('item');
+            const episodeList = document.getElementById('episode-list');
+
+            Array.from(items).forEach(item => {
+                const pubDate = item.getElementsByTagName('pubDate')[0]?.textContent;
+                const link = item.getElementsByTagName('link')[0]?.textContent;
+
+                if (pubDate && link) {
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        <strong>Published:</strong> ${pubDate}<br>
+                        <a href="${link}" target="_blank">Listen to Episode</a>
+                    `;
+                    episodeList.appendChild(li);
+                }
+            });
+        })
+        .catch(error => {
+            console.error('Error loading feed:', error);
+        });
+    </script>
+</body>
+</html>
