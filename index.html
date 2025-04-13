@@ -34,20 +34,24 @@
             const xmlDoc = parser.parseFromString(data, "text/xml");
             const items = xmlDoc.getElementsByTagName('item');
             const episodeList = document.getElementById('episode-list');
+            const seenLinks = new Set();
 
             Array.from(items).forEach(item => {
                 const titleEl = item.getElementsByTagName('title')[0];
                 const linkEl = item.getElementsByTagName('link')[0];
                 if (!linkEl || !titleEl) return;
 
-                const link = linkEl.textContent;
+                const link = linkEl.textContent.trim();
+                if (seenLinks.has(link)) return; // avoid duplicates
+                seenLinks.add(link);
+
                 const originalTitle = titleEl.textContent;
                 const { formatted } = parseDateFromUrl(link);
 
                 const li = document.createElement('li');
                 li.innerHTML = `
                     <strong>${originalTitle} (${formatted})</strong><br>
-                    <a href="${link}" target="_blank">🎧 Listen to Episode</a>
+                    <a href="${link}" target="_blank">🎧 Listen to Episode</a><br><br>
                 `;
                 episodeList.appendChild(li);
             });
