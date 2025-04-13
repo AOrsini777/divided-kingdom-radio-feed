@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9,6 +10,24 @@
     <ul id="episode-list"></ul>
 
     <script>
+        function parseDateFromUrl(url) {
+            const match = url.match(/(\d{6})(?=\.mp3)/);
+            if (!match) return { raw: "Unknown", formatted: "Unknown Date" };
+
+            const raw = match[1]; // e.g., "041224"
+            const month = parseInt(raw.slice(0, 2), 10);
+            const day = parseInt(raw.slice(2, 4), 10);
+            const year = parseInt("20" + raw.slice(4, 6), 10); // assumes 20xx
+
+            const dateObj = new Date(year, month - 1, day);
+            const formatted = dateObj.toLocaleDateString(undefined, {
+                year: "numeric",
+                month: "long",
+                day: "numeric"
+            });
+            return { raw, formatted };
+        }
+
         fetch('feed.xml')
         .then(response => response.text())
         .then(data => {
@@ -18,17 +37,20 @@
             const episodeList = document.getElementById('episode-list');
 
             Array.from(items).forEach(item => {
-                const pubDate = item.getElementsByTagName('pubDate')[0]?.textContent;
-                const link = item.getElementsByTagName('link')[0]?.textContent;
+                const titleEl = item.getElementsByTagName('title')[0];
+                const linkEl = item.getElementsByTagName('link')[0];
+                if (!linkEl || !titleEl) return;
 
-                if (pubDate && link) {
-                    const li = document.createElement('li');
-                    li.innerHTML = `
-                        <strong>Published:</strong> ${pubDate}<br>
-                        <a href="${link}" target="_blank">Listen to Episode</a>
-                    `;
-                    episodeList.appendChild(li);
-                }
+                const link = linkEl.textContent;
+                const originalTitle = titleEl.textContent;
+                const { raw, formatted } = parseDateFromUrl(link);
+
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <strong>${originalTitle} (${formatted})</strong><br>
+                    <a href="${link}" target="_blank">🎧 Listen to Episode</a>
+                `;
+                episodeList.appendChild(li);
             });
         })
         .catch(error => {
