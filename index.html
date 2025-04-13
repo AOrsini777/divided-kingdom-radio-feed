@@ -34,7 +34,7 @@
             const xmlDoc = parser.parseFromString(data, "text/xml");
             const items = xmlDoc.getElementsByTagName('item');
             const episodeList = document.getElementById('episode-list');
-            const seenLinks = new Set();
+            const seenFilenames = new Set();
 
             Array.from(items).forEach(item => {
                 const titleEl = item.getElementsByTagName('title')[0];
@@ -42,8 +42,12 @@
                 if (!linkEl || !titleEl) return;
 
                 const link = linkEl.textContent.trim();
-                if (seenLinks.has(link)) return; // avoid duplicates
-                seenLinks.add(link);
+                const filenameMatch = link.match(/([^\/]+\.mp3)/);
+                if (!filenameMatch) return;
+                const filename = filenameMatch[1];
+
+                if (seenFilenames.has(filename)) return;
+                seenFilenames.add(filename);
 
                 const originalTitle = titleEl.textContent;
                 const { formatted } = parseDateFromUrl(link);
