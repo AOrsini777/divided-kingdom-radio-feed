@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -43,7 +42,7 @@
 
                 const link = linkEl.textContent;
                 const originalTitle = titleEl.textContent;
-                const { raw, formatted } = parseDateFromUrl(link);
+                const { formatted } = parseDateFromUrl(link);
 
                 const li = document.createElement('li');
                 li.innerHTML = `
