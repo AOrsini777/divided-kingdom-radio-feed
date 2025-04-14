@@ -1,15 +1,16 @@
 name: Update RSS Feed
 
 on:
-  workflow_dispatch:
   schedule:
-    - cron: '0 10 * * 1'  # Every Monday at 10:00 UTC
+    - cron: '0 12 * * 0'  # Runs every Sunday at 12:00 UTC
+  workflow_dispatch:      # Allows manual trigger
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Set up Python
@@ -17,16 +18,77 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Install dependencies
-        run: pip install beautifulsoup4 requests
+      - name: Install feedparser and requests
+        run: pip install feedparser requests beautifulsoup4
 
-      - name: Run feed generator
-        run: python generate_feed.py
-
-      - name: Commit and push if feed updated
+      - name: Generate feed.xml
         run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          python3 <<EOF
+          import requests
+          from bs4 import BeautifulSoup
+          from datetime import datetime
+          import re
+
+          url = "https://gsradio.net/shows/divided_kingdom/"
+          response = requests.get(url)
+          soup = BeautifulSoup(response.text, 'html.parser')
+
+          links = soup.find_all('a', href=True)
+          audio_links = [a['href'] for a in links if a['href'].endswith('.mp3')]
+
+          def extract_date(filename):
+              match = re.search(r'/(\d{6})\.mp3$', filename)
+              if match:
+                  try:
+                      return datetime.strptime(match.group(1), '%m%d%y')
+                  except:
+                      return None
+              return None
+
+          items = []
+          for link in audio_links:
+              date = extract_date(link)
+              if not date:
+                  continue
+              https_link = link.replace("mms://", "https://")
+              pub_date = date.strftime('%a, %d %b %Y 00:00:00 GMT')
+              title = f"Episode - {date.strftime('%m/%d/%y')}"
+              item = f"""
+              <item>
+                <title>{title}</title>
+                <link>{https_link}</link>
+                <guid>{https_link}</guid>
+                <pubDate>{pub_date}</pubDate>
+                <enclosure url="{https_link}" length="12345678" type="audio/mpeg" />
+              </item>
+              """
+              items.append((date, item.strip()))
+
+          items.sort(reverse=True)
+          item_xml = "\n".join([item for _, item in items])
+
+          rss_feed = f"""<?xml version="1.0" encoding="UTF-8" ?>
+          <rss version="2.0">
+            <channel>
+              <title>Divided Kingdom</title>
+              <link>https://gsradio.net/shows/divided_kingdom/</link>
+              <description>Weekly show archive for Divided Kingdom on GSR.</description>
+              <language>en-us</language>
+              <lastBuildDate>{datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')}</lastBuildDate>
+              <atom:link href="https://aorsini777.github.io/divided-kingdom-radio-feed/feed.xml" rel="self" type="application/rss+xml" xmlns:atom="http://www.w3.org/2005/Atom"/>
+              {item_xml}
+            </channel>
+          </rss>
+          """
+
+          with open("feed.xml", "w", encoding="utf-8") as f:
+              f.write(rss_feed)
+          EOF
+
+      - name: Commit and push feed.xml
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@users.noreply.github.com"
           git add feed.xml
-          git commit -m "Update feed.xml" || echo "No changes to commit"
+          git commit -m "Auto-update RSS feed" || echo "No changes to commit"
           git push
