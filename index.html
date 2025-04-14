@@ -1,68 +1,81 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Divided Kingdom Radio Feed</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Divided Kingdom Episodes</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+    h1 {
+      text-align: center;
+    }
+    .episode {
+      margin-bottom: 25px;
+    }
+    .episode-title {
+      font-weight: bold;
+    }
+    .episode-date {
+      color: gray;
+      margin-bottom: 5px;
+    }
+  </style>
 </head>
 <body>
-    <h1>Divided Kingdom Radio Episodes</h1>
-    <ul id="episode-list"></ul>
+  <h1>Divided Kingdom Episodes</h1>
+  <div id="episodes">Loading...</div>
 
-    <script>
-        function parseDateFromUrl(url) {
-            const match = url.match(/(\d{6})(?=\.mp3)/);
-            if (!match) return { raw: "Unknown", formatted: "Unknown Date" };
+  <script>
+    async function fetchFeed() {
+      const response = await fetch('feed.xml');
+      const text = await response.text();
+      const parser = new DOMParser();
+      const xml = parser.parseFromString(text, 'application/xml');
+      const items = Array.from(xml.querySelectorAll('item'));
 
-            const raw = match[1]; // e.g., "041224"
-            const month = parseInt(raw.slice(0, 2), 10);
-            const day = parseInt(raw.slice(2, 4), 10);
-            const year = parseInt("20" + raw.slice(4, 6), 10); // assumes 20xx
+      const filteredItems = items
+        .map(item => {
+          const link = item.querySelector('link')?.textContent.trim();
+          if (!link || !link.startsWith('https://')) return null;
 
-            const dateObj = new Date(year, month - 1, day);
-            const formatted = dateObj.toLocaleDateString(undefined, {
-                year: "numeric",
-                month: "long",
-                day: "numeric"
-            });
-            return { raw, formatted };
-        }
+          const fileName = link.split('/').pop();
+          const dateMatch = fileName.match(/(\d{6})/);
+          if (!dateMatch) return null;
 
-        fetch('feed.xml')
-        .then(response => response.text())
-        .then(data => {
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(data, "text/xml");
-            const items = xmlDoc.getElementsByTagName('item');
-            const episodeList = document.getElementById('episode-list');
-            const seenFilenames = new Set();
+          const dateStr = dateMatch[1];
+          const parsedDate = new Date(`20${dateStr.slice(4,6)}-${dateStr.slice(0,2)}-${dateStr.slice(2,4)}`);
+          const formattedDate = parsedDate.toISOString().split('T')[0];
 
-            Array.from(items).forEach(item => {
-                const titleEl = item.getElementsByTagName('title')[0];
-                const linkEl = item.getElementsByTagName('link')[0];
-                if (!linkEl || !titleEl) return;
+          const title = item.querySelector('title')?.textContent || 'Untitled Episode';
 
-                const link = linkEl.textContent.trim();
-                const filenameMatch = link.match(/([^\/]+\.mp3)/);
-                if (!filenameMatch) return;
-                const filename = filenameMatch[1];
-
-                if (seenFilenames.has(filename)) return;
-                seenFilenames.add(filename);
-
-                const originalTitle = titleEl.textContent;
-                const { formatted } = parseDateFromUrl(link);
-
-                const li = document.createElement('li');
-                li.innerHTML = `
-                    <strong>${originalTitle} (${formatted})</strong><br>
-                    <a href="${link}" target="_blank">🎧 Listen to Episode</a><br><br>
-                `;
-                episodeList.appendChild(li);
-            });
+          return { link, parsedDate, formattedDate, title };
         })
-        .catch(error => {
-            console.error('Error loading feed:', error);
-        });
-    </script>
+        .filter(Boolean)
+        .sort((a, b) => b.parsedDate - a.parsedDate); // sort newest first
+
+      const container = document.getElementById('episodes');
+      container.innerHTML = '';
+
+      filteredItems.forEach(({ link, formattedDate, title }) => {
+        const div = document.createElement('div');
+        div.className = 'episode';
+        div.innerHTML = `
+          <div class="episode-date">${formattedDate}</div>
+          <div class="episode-title">
+            <a href="${link}" target="_blank">${formattedDate} – ${title}</a>
+          </div>
+          <div><a href="${link}" target="_blank">Listen to episode</a></div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    fetchFeed();
+  </script>
 </body>
 </html>
