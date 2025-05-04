@@ -18,8 +18,8 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Install feedparser and requests
-        run: pip install feedparser requests beautifulsoup4
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4
 
       - name: Generate feed.xml
         run: |
@@ -45,11 +45,19 @@ jobs:
                       return None
               return None
 
+          seen_files = set()
           items = []
+
           for link in audio_links:
+              filename = link.split('/')[-1]
+              if filename in seen_files:
+                  continue
+              seen_files.add(filename)
+
               date = extract_date(link)
               if not date:
                   continue
+
               https_link = link.replace("mms://", "https://")
               pub_date = date.strftime('%a, %d %b %Y 00:00:00 GMT')
               title = f"Episode - {date.strftime('%m/%d/%y')}"
@@ -57,7 +65,7 @@ jobs:
               <item>
                 <title>{title}</title>
                 <link>{https_link}</link>
-                <guid>{https_link}</guid>
+                <guid isPermaLink="false">{https_link}</guid>
                 <pubDate>{pub_date}</pubDate>
                 <enclosure url="{https_link}" length="12345678" type="audio/mpeg" />
               </item>
@@ -68,27 +76,7 @@ jobs:
           item_xml = "\n".join([item for _, item in items])
 
           rss_feed = f"""<?xml version="1.0" encoding="UTF-8" ?>
-          <rss version="2.0">
+          <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
             <channel>
               <title>Divided Kingdom</title>
-              <link>https://gsradio.net/shows/divided_kingdom/</link>
-              <description>Weekly show archive for Divided Kingdom on GSR.</description>
-              <language>en-us</language>
-              <lastBuildDate>{datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')}</lastBuildDate>
-              <atom:link href="https://aorsini777.github.io/divided-kingdom-radio-feed/feed.xml" rel="self" type="application/rss+xml" xmlns:atom="http://www.w3.org/2005/Atom"/>
-              {item_xml}
-            </channel>
-          </rss>
-          """
-
-          with open("feed.xml", "w", encoding="utf-8") as f:
-              f.write(rss_feed)
-          EOF
-
-      - name: Commit and push feed.xml
-        run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@users.noreply.github.com"
-          git add feed.xml
-          git commit -m "Auto-update RSS feed" || echo "No changes to commit"
-          git push
+              <link>https://gsradio.net/shows/divided_kingdom/</li_
